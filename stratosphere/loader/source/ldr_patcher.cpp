@@ -109,6 +109,9 @@ namespace ams::ldr {
 
         #include "ldr_embedded_usb_patches.inc"
         #include "ldr_embedded_am_patches.inc"
+        #include "ldr_embedded_es_patches.inc"
+        #include "ldr_embedded_nifm_patches.inc"
+        #include "ldr_embedded_nim_patches.inc"
 
     }
 
@@ -141,9 +144,29 @@ namespace ams::ldr {
                 }
             }
         }
-        
-        /* TODO: Remove this if/when a cleaner solution is implemented by hbmenu/libnx. */
-        for (const auto &patch : AmDisableTeardownPatches) {
+        for (const auto &patch : DisableTicketVerificationPatches) {
+            if (std::memcmp(std::addressof(patch.module_id), std::addressof(module_id), sizeof(module_id)) == 0) {
+                for (size_t i = 0; i < patch.num_entries; ++i) {
+                    const auto &entry = patch.entries[i];
+                    if (entry.offset + entry.size <= mapped_size) {
+                        std::memcpy(reinterpret_cast<void *>(mapped_nso + entry.offset), entry.data, entry.size);
+                    }
+                }
+            }
+        }
+
+        for (const auto &patch : ForceCommunicationEnabledPatches) {
+            if (std::memcmp(std::addressof(patch.module_id), std::addressof(module_id), sizeof(module_id)) == 0) {
+                for (size_t i = 0; i < patch.num_entries; ++i) {
+                    const auto &entry = patch.entries[i];
+                    if (entry.offset + entry.size <= mapped_size) {
+                        std::memcpy(reinterpret_cast<void *>(mapped_nso + entry.offset), entry.data, entry.size);
+                    }
+                }
+            }
+        }
+
+        for (const auto &patch : AmsProdinfoBlankerFix) {
             if (std::memcmp(std::addressof(patch.module_id), std::addressof(module_id), sizeof(module_id)) == 0) {
                 for (size_t i = 0; i < patch.num_entries; ++i) {
                     const auto &entry = patch.entries[i];
@@ -154,5 +177,4 @@ namespace ams::ldr {
             }
         }
     }
-
-}
+};
