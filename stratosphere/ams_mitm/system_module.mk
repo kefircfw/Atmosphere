@@ -7,6 +7,19 @@ include $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/../../libraries/config/te
 
 ATMOSPHERE_SYSTEM_MODULE_TARGETS := kip
 
+ifndef ATMOSPHERE_GIT_REVISION
+    ifdef KEF_VERSION
+        export ATMOSPHERE_GIT_REVISION := KEF-$(KEF_VERSION)
+    else
+        KEFIR_ROOT_DIR ?= /mnt/d/git/dev/_kefir
+        ifneq ("$(wildcard $(KEFIR_ROOT_DIR)/version)","")
+            export ATMOSPHERE_GIT_REVISION := KEF-$(shell cat $(KEFIR_ROOT_DIR)/version | tr -d '\n\r')
+        else
+            export ATMOSPHERE_GIT_REVISION := KEF-UNK
+        endif
+    endif
+endif
+
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
 # rules for different file extensions
