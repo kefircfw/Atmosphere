@@ -1159,6 +1159,30 @@ namespace dbk {
                 /* Log success. */
                 this->LogText("Update applied successfully.\n");
 
+                /* Delete the update directory. */
+                if (std::strlen(g_update_path) > 0) {
+                    this->LogText("Deleting update directory...\n");
+
+                    /* Remove trailing slash if present. */
+                    char path_to_delete[FS_MAX_PATH];
+                    strncpy(path_to_delete, g_update_path, sizeof(path_to_delete)-1);
+                    size_t len = std::strlen(path_to_delete);
+                    if (len > 0 && path_to_delete[len-1] == '/') {
+                        path_to_delete[len-1] = '\0';
+                    }
+
+                    /* Delete the directory recursively. */
+                    FsFileSystem *fs;
+                    char translated_path[FS_MAX_PATH] = {};
+                    if (fsdevTranslatePath(path_to_delete, &fs, translated_path) != -1) {
+                        if (R_SUCCEEDED(fsFsDeleteDirectoryRecursively(fs, translated_path))) {
+                            this->LogText("Update directory deleted.\n");
+                        } else {
+                            this->LogText("Failed to delete update directory.\n");
+                        }
+                    }
+                }
+
                 if (g_reset_to_factory) {
                     if (R_FAILED(rc = nsResetToFactorySettingsForRefurbishment())) {
                         /* Fallback on ResetToFactorySettings. */
