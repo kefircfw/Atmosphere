@@ -245,6 +245,7 @@ namespace ams::spl {
         ExosphereForceEnableUsb30      = 65010,
         ExosphereSupportedHosVersion   = 65011,
         ExosphereApproximateApiVersion = 65012, /* NOTE: Internal use only. */
+        ExosphereForce40MbApplet       = 65013,
     };
 
 }
@@ -262,4 +263,5 @@ constexpr inline SplConfigItem SplConfigItem_ExosphereEmummcType       = static_
 constexpr inline SplConfigItem SplConfigItem_ExospherePayloadAddress   = static_cast<SplConfigItem>(65008);
 constexpr inline SplConfigItem SplConfigItem_ExosphereLogConfiguration = static_cast<SplConfigItem>(65009);
 constexpr inline SplConfigItem SplConfigItem_ExosphereForceEnableUsb30 = static_cast<SplConfigItem>(65010);
+constexpr inline SplConfigItem SplConfigItem_ExosphereForce40MbApplet  = static_cast<SplConfigItem>(65013);
 #endif

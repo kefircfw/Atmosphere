@@ -144,28 +144,12 @@ oc:
 	@echo "                  FINISH building OC!"
 	@echo "---------------------------------------------------------"
 
-40mb:
-	@echo "---------------------------------------------------------"
-	@echo "                  Building 40MB Mesosphere!"
-	@echo "---------------------------------------------------------"
-	git checkout 40mb
-	git merge master --no-edit
-	$(MAKE) clean -j$(NPROCS)
-	$(MAKE) -f atmosphere.mk package3 ATMOSPHERE_GIT_REVISION="K$(KEF_VERSION)-40MB" -j$(NPROCS)
-	mkdir -p $(KEF_40MB_DIR)/atmosphere/
-	cp fusee/out/nintendo_nx_arm_armv4t/release/package3 $(KEF_40MB_DIR)/atmosphere/package3
-	python utilities/insert_splash_screen.py ~/dev/_kefir/bootlogo/splash_logo.png $(KEF_40MB_DIR)/atmosphere/package3
-	@echo "---------------------------------------------------------"
-	@echo "            FINISH building 40MB!"
-	@echo "---------------------------------------------------------"
-
 kefir:
 	git checkout master
 	$(MAKE) clean -j$(NPROCS)
 	$(MAKE) nx_release -j$(NPROCS)
 	$(MAKE) 8gb_DRAM SKIP_FETCH=1
 	$(MAKE) oc
-	$(MAKE) 40mb
 
 kefir_logo:
 	git checkout master
@@ -174,6 +158,5 @@ kefir_logo:
 	$(MAKE) nx_release -j$(NPROCS)
 	$(MAKE) 8gb_DRAM SKIP_FETCH=1
 	$(MAKE) oc
-	$(MAKE) 40mb
 
-.PHONY: all clean clean-all kefir-version update clean-logo clear 8gb_DRAM oc kefir 40mb $(foreach config,$(ATMOSPHERE_BUILD_CONFIGS), $(config) clean-$(config))
+.PHONY: all clean clean-all kefir-version update clean-logo clear 8gb_DRAM oc kefir $(foreach config,$(ATMOSPHERE_BUILD_CONFIGS), $(config) clean-$(config))

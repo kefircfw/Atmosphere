@@ -31,6 +31,7 @@ namespace ams::secmon {
         SecureMonitorConfigurationFlag_AllowWritingToCalibrationBinarySysmmc  = (1u << 6),
         SecureMonitorConfigurationFlag_ForceEnableUsb30                       = (1u << 7),
         SecureMonitorConfigurationFlag_BootConfigMemoryModeEnabled            = (1u << 8),
+        SecureMonitorConfigurationFlag_Force40MbApplet                        = (1u << 9),
 
         SecureMonitorConfigurationFlag_Default = SecureMonitorConfigurationFlag_IsDevelopmentFunctionEnabledForKernel,
     };
@@ -105,6 +106,7 @@ namespace ams::secmon {
         constexpr bool AllowWritingToCalibrationBinarySysmmc()  const { return (this->flags[0] & SecureMonitorConfigurationFlag_AllowWritingToCalibrationBinarySysmmc)  != 0; }
         constexpr bool IsUsb30ForceEnabled()                    const { return (this->flags[0] & SecureMonitorConfigurationFlag_ForceEnableUsb30)                       != 0; }
         constexpr bool IsBootConfigMemoryModeEnabled()          const { return (this->flags[0] & SecureMonitorConfigurationFlag_BootConfigMemoryModeEnabled)            != 0; }
+        constexpr bool Is40MbAppletForced()                     const { return (this->flags[0] & SecureMonitorConfigurationFlag_Force40MbApplet)                        != 0; }
 
         constexpr bool IsDevelopmentFunctionEnabled(bool for_kern) const { return for_kern ? this->IsDevelopmentFunctionEnabledForKernel() : this->IsDevelopmentFunctionEnabledForUser(); }
     };
