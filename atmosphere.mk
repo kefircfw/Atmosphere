@@ -122,4 +122,20 @@ clean:
 $(CURRENT_DIRECTORY)/$(ATMOSPHERE_OUT_DIR) $(CURRENT_DIRECTORY)/$(ATMOSPHERE_BUILD_DIR):
 	@[ -d $@ ] || mkdir -p $@
 
-.PHONY: dist-no-debug clean package3 emummc fusee stratosphere mesosphere exosphere
+# Partial clean for 8GB rebuild: only components affected by the 8GB DRAM patch.
+# - libexosphere (fuse_api.cpp, pkg1_boot_config.hpp)
+# - exosphere (depends on libexosphere)
+# - fusee (depends on libexosphere_boot)
+# - ams_mitm (setsys_mitm_service.cpp version string)
+clean-8gb:
+	$(MAKE) -C $(ATMOSPHERE_LIBRARIES_DIR)/libexosphere -f $(ATMOSPHERE_LIBRARIES_DIR)/libexosphere/libexosphere.mk clean
+	$(MAKE) -C $(ATMOSPHERE_LIBRARIES_DIR)/libexosphere -f $(ATMOSPHERE_LIBRARIES_DIR)/libexosphere/libexosphere.mk clean ATMOSPHERE_CPU="$(strip $(ATMOSPHERE_BOOT_CPU))"
+	$(MAKE) -C $(CURRENT_DIRECTORY)/exosphere -f $(CURRENT_DIRECTORY)/exosphere/exosphere.mk clean
+	$(MAKE) -C $(CURRENT_DIRECTORY)/fusee -f $(CURRENT_DIRECTORY)/fusee/fusee.mk clean ATMOSPHERE_CPU="$(strip $(ATMOSPHERE_BOOT_CPU))"
+	$(MAKE) -C $(CURRENT_DIRECTORY)/stratosphere/ams_mitm clean
+
+# Partial clean for OC rebuild: only stratosphere/loader is modified by the OC patch.
+clean-oc:
+	$(MAKE) -C $(CURRENT_DIRECTORY)/stratosphere/loader clean
+
+.PHONY: dist-no-debug clean clean-8gb clean-oc package3 emummc fusee stratosphere mesosphere exosphere

@@ -118,7 +118,7 @@ kefir-version:
 	@echo "---------------------------------------------------------"
 	git checkout 8gb_DRAM
 	git merge master --no-edit
-	$(MAKE) clean -j$(NPROCS)
+	$(MAKE) -f atmosphere.mk clean-8gb
 	$(MAKE) -f atmosphere.mk package3 ATMOSPHERE_GIT_REVISION="K$(KEF_VERSION)-8GB" -j$(NPROCS)
 	$(MAKE) -C fusee -j$(NPROCS)
 	mkdir -p $(KEF_8GB_DIR)/atmosphere/
@@ -136,7 +136,7 @@ oc:
 	@echo "---------------------------------------------------------"
 	git checkout oc
 	git merge master --no-edit
-	$(MAKE) clean -j$(NPROCS)
+	$(MAKE) -f atmosphere.mk clean-oc
 	$(MAKE) -C stratosphere/loader -j$(NPROCS)
 	mkdir -p $(KEF_OC_DIR)/atmosphere/kips/
 	cp stratosphere/loader/out/nintendo_nx_arm64_armv8a/release/loader.kip $(KEF_OC_DIR)/atmosphere/kips/kefir.kip
