@@ -73,7 +73,8 @@
                 "svcMapProcessCodeMemory"            : "0x77",
                 "svcUnmapProcessCodeMemory"          : "0x78",
                 "svcCreateProcess"                   : "0x79",
-                "svcCallSecureMonitor"               : "0x7F"
+                "svcCallSecureMonitor"               : "0x7F",
+                "svcSetProcessLegacyTlsAbi"          : "0xB0"
             }
         }
     ]

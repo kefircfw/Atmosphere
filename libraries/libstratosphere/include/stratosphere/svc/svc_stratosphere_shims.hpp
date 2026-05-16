@@ -511,6 +511,17 @@
                     R_RETURN(::svcUnmapInsecurePhysicalMemory(reinterpret_cast<void *>(static_cast<uintptr_t>(address)), size));
                 }
 
+                /* KEFIR: Atmosphere extension SVC, slot 0xB0. libnx does not expose it yet, so we   */
+                /* emit the raw arm64 svc instruction directly. Marks the target process as using   */
+                /* the pre-libnx-4.10.0 USER_TLS layout so the kernel skips writes to TLS+0x108 /    */
+                /* TLS+0x110 that would otherwise corrupt old-libnx homebrew slots. Idempotent.      */
+                ALWAYS_INLINE Result SetProcessLegacyTlsAbi(::ams::svc::Handle process_handle, bool legacy) {
+                    register u64 x0 __asm__("x0") = static_cast<u64>(process_handle);
+                    register u64 x1 __asm__("x1") = legacy ? 1u : 0u;
+                    __asm__ __volatile__("svc 0xB0" : "+r"(x0), "+r"(x1) :: "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "memory");
+                    R_RETURN(static_cast<Result>(x0));
+                }
+
             }
 
         #endif

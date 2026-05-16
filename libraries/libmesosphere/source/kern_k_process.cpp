@@ -211,6 +211,8 @@ namespace ams::kern {
         m_code_address              = params.code_address;
         m_code_size                 = params.code_num_pages * PageSize;
         m_is_application            = (params.flags & ams::svc::CreateProcessFlag_IsApplication);
+        /* KEFIR: pick up legacy TLS ABI marker from loader at process creation. */
+        m_is_legacy_tls_abi         = (params.flags & ams::svc::CreateProcessFlag_LegacyTlsAbi);
         m_is_jit_debug              = false;
 
         #if defined(MESOSPHERE_ENABLE_PROCESS_CREATION_TIME)
@@ -982,7 +984,15 @@ namespace ams::kern {
         main_thread->GetContext().SetArguments(0, thread_handle);
 
         /* Pass the thread handle to the thread local region. */
-        static_cast<ams::svc::ThreadLocalRegion *>(main_thread->GetThreadLocalRegionHeapAddress())->thread_handle = thread_handle;
+        /* KEFIR: skip the kernel-managed thread_handle slot for legacy-TLS-ABI processes so the */
+        /* TLS+0x110 word stays available as old libnx slot 1. The main thread handle is still   */
+        /* passed to the entrypoint via x1 (NSO) / env vars (NRO), so legacy homebrew can still  */
+        /* discover it through the normal entrypoint contract. The flag is set by ams::loader at */
+        /* process creation time (CreateProcessFlag_LegacyTlsAbi) or by an explicit call to      */
+        /* svcSetProcessLegacyTlsAbi between svcCreateProcess and svcStartProcess.               */
+        if (!this->IsLegacyTlsAbi()) {
+            static_cast<ams::svc::ThreadLocalRegion *>(main_thread->GetThreadLocalRegionHeapAddress())->thread_handle = thread_handle;
+        }
 
         /* Update our state. */
         this->ChangeState((state == State_Created) ? State_Running : State_RunningAttached);

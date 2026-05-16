@@ -346,6 +346,9 @@ namespace ams::secmon::smc {
                         return SmcResult::Busy;
                     }
                     break;
+                case ConfigItem::ExosphereForce40MbApplet:
+                    args.r[1] = GetSecmonConfiguration().Is40MbAppletForced();
+                    break;
                 default:
                     return SmcResult::InvalidArgument;
             }

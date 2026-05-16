@@ -15,6 +15,7 @@
  */
 #include <stratosphere.hpp>
 #include "fsmitm_save_utils.hpp"
+#include <string>
 
 namespace ams::mitm::fs {
 
@@ -89,8 +90,24 @@ namespace ams::mitm::fs {
     }
 
     Result SaveUtil::GetDirectorySaveDataPath(char *dst, size_t dst_size, ncm::ProgramId program_id, u8 space_id, const fs::SaveDataAttribute &attribute) {
-        /* Saves should be separate for emunand vs sysnand. */
-        const char *emummc_str = emummc::IsActive() ? "emummc" : "sysmmc";
+        /* Saves are stored next to the Nintendo folder for the active emuMMC. */
+        char base_save_dir[0x100];
+        util::TSNPrintf(base_save_dir, sizeof(base_save_dir), "/atmosphere/saves");
+
+        if (emummc::IsActive()) {
+            if (const char *nintendo_path = emummc::GetNintendoDirPath(); nintendo_path != nullptr) {
+                util::TSNPrintf(base_save_dir, sizeof(base_save_dir), "%s", nintendo_path);
+                /* Strip the last component (e.g., /Nintendo) */
+                for (int i = std::strlen(base_save_dir) - 1; i >= 0; --i) {
+                    if (base_save_dir[i] == '/' || base_save_dir[i] == '\\') {
+                        base_save_dir[i] = '\0';
+                        break;
+                    }
+                }
+                /* Append /saves */
+                std::strncat(base_save_dir, "/saves", sizeof(base_save_dir) - std::strlen(base_save_dir) - 1);
+            }
+        }
 
         /* Get space_id, save_data_type strings. */
         const char *space_id_str, *save_type_str;
@@ -101,14 +118,13 @@ namespace ams::mitm::fs {
         const bool is_system = attribute.system_save_data_id != InvalidSystemSaveDataId && IsEmptyAccountId(attribute.user_id);
         size_t out_path_len;
         if (is_system) {
-            out_path_len = static_cast<size_t>(util::SNPrintf(dst, dst_size, "/atmosphere/saves/%s/%s/%s/%016lx", emummc_str, space_id_str, save_type_str, attribute.system_save_data_id));
+            out_path_len = static_cast<size_t>(util::SNPrintf(dst, dst_size, "%s/%016lx/%s", base_save_dir, attribute.system_save_data_id, save_type_str));
         } else {
-            out_path_len = static_cast<size_t>(util::SNPrintf(dst, dst_size, "/atmosphere/saves/%s/%s/%s/%016lx/%016lx%016lx", emummc_str, space_id_str, save_type_str, static_cast<u64>(program_id), attribute.user_id.data[1], attribute.user_id.data[0]));
+            out_path_len = static_cast<size_t>(util::SNPrintf(dst, dst_size, "%s/%016lx%016lx/%016lx/%s", base_save_dir, attribute.user_id.data[1], attribute.user_id.data[0], static_cast<u64>(program_id), save_type_str));
         }
 
         R_UNLESS(out_path_len < dst_size, fs::ResultTooLongPath());
 
         R_SUCCEED();
     }
-
 }

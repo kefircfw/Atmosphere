@@ -590,21 +590,26 @@ namespace ams::nxboot {
                 }
             }
 
-            /* Parse usb setting from system_settings.ini */
+            /* Parse fields from system_settings.ini */
             {
                 IniSectionList sections;
                 if (ParseIniSafe(sections, "sdmc:/atmosphere/config/system_settings.ini")) {
                     for (const auto &section : sections) {
-                        /* We only care about the [usb] section. */
-                        if (std::strcmp(section.name, "usb")) {
-                            continue;
-                        }
-
-                        /* Handle individual fields. */
-                        for (const auto &entry : section.kv_list) {
-                            if (std::strcmp(entry.key, "usb30_force_enabled") == 0) {
-                                if (std::strcmp(entry.value, "u8!0x1") == 0) {
-                                    storage_ctx.flags[0] |= secmon::SecureMonitorConfigurationFlag_ForceEnableUsb30;
+                        /* Handle individual sections. */
+                        if (std::strcmp(section.name, "atmosphere") == 0) {
+                            for (const auto &entry : section.kv_list) {
+                                if (std::strcmp(entry.key, "force_40mb_applet") == 0) {
+                                    if (std::strcmp(entry.value, "u8!0x1") == 0 || std::strcmp(entry.value, "1") == 0) {
+                                        storage_ctx.flags[0] |= secmon::SecureMonitorConfigurationFlag_Force40MbApplet;
+                                    }
+                                }
+                            }
+                        } else if (std::strcmp(section.name, "usb") == 0) {
+                            for (const auto &entry : section.kv_list) {
+                                if (std::strcmp(entry.key, "usb30_force_enabled") == 0) {
+                                    if (std::strcmp(entry.value, "u8!0x1") == 0) {
+                                        storage_ctx.flags[0] |= secmon::SecureMonitorConfigurationFlag_ForceEnableUsb30;
+                                    }
                                 }
                             }
                         }

@@ -63,13 +63,31 @@ namespace ams::mitm::settings {
                 const auto api_info = exosphere::GetApiInfo();
                 const char emummc_char = emummc::IsActive() ? 'E' : 'S';
 
-                /* NOTE: We have carefully accounted for the size of the string we print. */
-                /* No truncation occurs assuming two-digits for all version number components. */
-                char display_version[sizeof(g_ams_firmware_version.display_version)];
+                u8 force_40mb = 0;
+                settings::fwdbg::GetSettingsItemValue(std::addressof(force_40mb), sizeof(force_40mb), "atmosphere", "force_40mb_applet");
 
-                util::SNPrintf(display_version, sizeof(display_version), "%s|AMS %u.%u.%u|%c", g_ams_firmware_version.display_version, api_info.GetMajorVersion(), api_info.GetMinorVersion(), api_info.GetMicroVersion(), emummc_char);
+                char dynamic_git_rev[32];
+                if (force_40mb != 0) {
+                    /* If ATMOSPHERE_GIT_REVISION is "KEF-xxx", convert it to "Kxxx-40MB" to save space. */
+                    if (std::strncmp(ATMOSPHERE_GIT_REVISION, "KEF-", 4) == 0) {
+                        util::SNPrintf(dynamic_git_rev, sizeof(dynamic_git_rev), "K%s-40MB", ATMOSPHERE_GIT_REVISION + 4);
+                    } else {
+                        util::SNPrintf(dynamic_git_rev, sizeof(dynamic_git_rev), "%s-40MB", ATMOSPHERE_GIT_REVISION);
+                    }
+                } else {
+                    util::SNPrintf(dynamic_git_rev, sizeof(dynamic_git_rev), "%s", ATMOSPHERE_GIT_REVISION);
+                }
 
-                std::memcpy(g_ams_firmware_version.display_version, display_version, sizeof(display_version));
+                /* GCC complains about the following snprintf possibly truncating, but this is not a problem and has been carefully accounted for. */
+                #pragma GCC diagnostic push
+                #pragma GCC diagnostic ignored "-Wformat-truncation"
+                {
+                    char display_version[sizeof(g_ams_firmware_version.display_version)];
+                    std::snprintf(display_version, sizeof(display_version), "%s|%s-%u.%u.%u|%c", g_ams_firmware_version.display_version, dynamic_git_rev, api_info.GetMajorVersion(), api_info.GetMinorVersion(), api_info.GetMicroVersion(), emummc_char);
+                    
+                    std::memcpy(g_ams_firmware_version.display_version, display_version, sizeof(display_version));
+                }
+                #pragma GCC diagnostic pop
             }
 
             g_cached_firmware_version = true;

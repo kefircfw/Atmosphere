@@ -67,7 +67,14 @@ namespace ams::kern::svc {
             R_TRY(process.GetHandleTable().Add(out, thread));
 
             /* Pass the thread handle to the thread local region. */
-            static_cast<ams::svc::ThreadLocalRegion *>(thread->GetThreadLocalRegionHeapAddress())->thread_handle = *out;
+            /* KEFIR: skip the kernel-managed thread_handle slot for legacy-TLS-ABI processes; */
+            /* old libnx puts its own slot 1 at TLS+0x110 and overwriting it corrupts user TLS. */
+            /* New libnx caches the handle inside its ThreadVars (TLS+0x1E4) and never reads    */
+            /* this slot, so modern homebrew is unaffected. The handle is still returned to the */
+            /* caller through *out as usual.                                                    */
+            if (!process.IsLegacyTlsAbi()) {
+                static_cast<ams::svc::ThreadLocalRegion *>(thread->GetThreadLocalRegionHeapAddress())->thread_handle = *out;
+            }
 
             R_SUCCEED();
         }

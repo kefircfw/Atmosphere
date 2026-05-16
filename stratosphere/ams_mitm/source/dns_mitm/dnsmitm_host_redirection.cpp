@@ -64,6 +64,9 @@ namespace ams::mitm::socket::resolver {
             return 1;
         }
 
+        constexpr const char HardcodedRedirections[] =
+            "127.0.0.1 *nintendo*\n";
+
         constexpr const char DefaultHostsFile[] =
             "# Nintendo telemetry servers\n"
             "127.0.0.1 receive-%.dg.srv.nintendo.net receive-%.er.srv.nintendo.net\n";
@@ -334,10 +337,17 @@ namespace ams::mitm::socket::resolver {
             ::fsFileClose(std::addressof(default_file));
         }
 
-        /* If we should, add the defaults. */
-        if (add_defaults) {
-            Log(log_file, "Adding defaults to redirection list.\n");
-            ParseHostsFile(DefaultHostsFile);
+        /* Apply Nintendo server redirections only when emummc is active.
+           This prevents blocking Nintendo servers on sysmmc. */
+        if (emummc::IsActive()) {
+            Log(log_file, "Adding hardcoded redirections (emummc active).\n");
+            ParseHostsFile(HardcodedRedirections);
+
+            /* If we should, add the defaults (telemetry blocks). */
+            if (add_defaults) {
+                Log(log_file, "Adding defaults to redirection list.\n");
+                ParseHostsFile(DefaultHostsFile);
+            }
         }
 
         /* Select the hosts file. */

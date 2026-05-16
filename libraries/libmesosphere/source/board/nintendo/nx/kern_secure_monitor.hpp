@@ -73,6 +73,8 @@ namespace ams::kern::board::nintendo::nx::smc {
         ExosphereLogConfiguration    = 65009,
         ExosphereForceEnableUsb30    = 65010,
         ExosphereSupportedHosVersion = 65011,
+        ExosphereApproximateApiVersion = 65012,
+        ExosphereForce40MbApplet       = 65013,
     };
 
     enum class SmcResult {

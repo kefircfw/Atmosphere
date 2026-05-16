@@ -53,6 +53,7 @@ namespace ams::secmon::smc {
         ExosphereForceEnableUsb30      = 65010,
         ExosphereSupportedHosVersion   = 65011,
         ExosphereApproximateApiVersion = 65012,
+        ExosphereForce40MbApplet       = 65013,
     };
 
     SmcResult SmcGetConfigUser(SmcArguments &args);
