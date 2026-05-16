@@ -274,8 +274,16 @@ namespace ams::kern {
         cpu::SwitchThreadLocalRegion(tls_address);
 
         /* Update the thread's cpu time differential in TLS, if relevant. */
+        /* KEFIR: for processes marked as legacy-TLS-ABI by the loader (main NSO targets a       */
+        /* libnx older than 4.10.0), skip this write so the TLS+0x108 slot stays available as    */
+        /* the old libnx USER_TLS slot 0. Modern processes (system modules, applets and Nintendo */
+        /* applications) keep the upstream behaviour because they rely on nn::os reading this    */
+        /* slot for cpu-time accounting on firmware 22.x and newer.                              */
         if (tls_address != 0) {
-            static_cast<ams::svc::ThreadLocalRegion *>(next_thread->GetThreadLocalRegionHeapAddress())->thread_cpu_time = next_thread->GetCpuTime() - cur_tick;
+            const KProcess * const next_process = next_thread->GetOwnerProcess();
+            if (next_process == nullptr || !next_process->IsLegacyTlsAbi()) {
+                static_cast<ams::svc::ThreadLocalRegion *>(next_thread->GetThreadLocalRegionHeapAddress())->thread_cpu_time = next_thread->GetCpuTime() - cur_tick;
+            }
         }
     }
 

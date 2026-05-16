@@ -443,6 +443,13 @@ namespace ams::svc {
         /* 18.x EnableAliasRegionExtraSize. */
         CreateProcessFlag_EnableAliasRegionExtraSize = (1 << 13),
 
+        /* KEFIR: Atmosphere extension. Set by loader for processes whose main NSO targets a libnx older */
+        /* than 4.10.0 (LNY2 magic absent or version field zero in MOD0+0x34). When set, the kernel skips */
+        /* writing the cpu-tick differential at TLS+0x108 and the thread handle at TLS+0x110 so the old   */
+        /* libnx USER_TLS_BEGIN=0x108 slots are preserved for legacy homebrew. Reuses a high bit to avoid */
+        /* clashing with future Nintendo CreateProcessFlag additions. */
+        CreateProcessFlag_LegacyTlsAbi = (1u << 30),
+
         /* Mask of all flags. */
         CreateProcessFlag_All = CreateProcessFlag_Is64Bit                        |
                                 CreateProcessFlag_AddressSpaceMask               |
@@ -452,7 +459,8 @@ namespace ams::svc {
                                 CreateProcessFlag_PoolPartitionMask              |
                                 CreateProcessFlag_OptimizeMemoryAllocation       |
                                 CreateProcessFlag_DisableDeviceAddressSpaceMerge |
-                                CreateProcessFlag_EnableAliasRegionExtraSize,
+                                CreateProcessFlag_EnableAliasRegionExtraSize     |
+                                CreateProcessFlag_LegacyTlsAbi,
     };
 
     /* Debug types. */

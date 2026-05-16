@@ -77,6 +77,13 @@ namespace ams::kern {
             bool                        m_is_initialized;
             bool                        m_is_application;
             bool                        m_is_default_application_system_resource;
+            /* KEFIR: When true, kernel skips legacy TLS slot writes (TLS+0x108 cpu-tick diff and */
+            /* TLS+0x110 thread handle) so old-libnx homebrew with USER_TLS_BEGIN=0x108 keeps its */
+            /* slot 0/1. Set by the loader from CreateProcessFlag_LegacyTlsAbi or toggled at      */
+            /* runtime via svcSetProcessLegacyTlsAbi. Single-bit aligned bool — concurrent read   */
+            /* in the scheduler vs. write from the SVC is benign (the scheduler picks up the new */
+            /* value on the next context switch at worst). */
+            bool                        m_is_legacy_tls_abi;
             char                        m_name[13];
             util::Atomic<u16>           m_num_running_threads;
             u32                         m_flags;
@@ -178,6 +185,10 @@ namespace ams::kern {
             constexpr u64 GetRandomEntropy(size_t i) const { return m_entropy[i]; }
 
             constexpr bool IsApplication() const { return m_is_application; }
+
+            /* KEFIR: see m_is_legacy_tls_abi. */
+            ALWAYS_INLINE bool IsLegacyTlsAbi() const { return m_is_legacy_tls_abi; }
+            ALWAYS_INLINE void SetLegacyTlsAbi(bool legacy) { m_is_legacy_tls_abi = legacy; }
 
             constexpr bool IsDefaultApplicationSystemResource() const { return m_is_default_application_system_resource; }
 

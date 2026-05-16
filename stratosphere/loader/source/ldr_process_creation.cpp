@@ -671,7 +671,32 @@ namespace ams::ldr {
             R_SUCCEED();
         }
 
-        Result LoadAutoLoadModule(os::NativeHandle process_handle, fs::FileHandle file, const NsoHeader *nso_header, uintptr_t nso_address, size_t nso_size, size_t map_size) {
+        /* KEFIR: Inspect MOD0+0x34 LNY2 magic in the decompressed text segment to decide whether */
+        /* the main NSO is built with the pre-libnx-4.10.0 USER_TLS_BEGIN=0x108 layout. The libnx */
+        /* crt0 stores "LNY2" followed by a non-zero version word at MOD0+0x34 starting with the  */
+        /* 4.10.0 release that fixes the TLS collision; older homebrew lacks the marker. We avoid */
+        /* relying on heuristics like NPDM SDK version, which is set by the NSP packer rather     */
+        /* than by libnx itself and is unreliable for forwarder/homebrew NSPs.                    */
+        constexpr u32 KEFIR_Lny2Magic = ('L') | ('N' << 8) | ('Y' << 16) | ('2' << 24);
+
+        bool DetectLegacyTlsAbiFromMainTextSegment(uintptr_t map_address, uintptr_t text_dst_offset, size_t text_size) {
+            /* Need at least the initial jump + mod_offset word. */
+            if (text_size < 8) {
+                return true;
+            }
+            const u32 * const text = reinterpret_cast<const u32 *>(map_address + text_dst_offset);
+            /* NSO entry contract: text[0] is a branch, text[1] is offset to MOD0 from text start. */
+            const u32 mod_offset = text[1];
+            /* MOD0 + 0x34 must fit within the decompressed text segment. */
+            if (mod_offset + 0x38 > text_size) {
+                return true;
+            }
+            const u32 lny2_magic   = *reinterpret_cast<const u32 *>(map_address + text_dst_offset + mod_offset + 0x34);
+            const u32 lny2_version = *reinterpret_cast<const u32 *>(map_address + text_dst_offset + mod_offset + 0x38);
+            return (lny2_magic != KEFIR_Lny2Magic) || (lny2_version == 0);
+        }
+
+        Result LoadAutoLoadModule(os::NativeHandle process_handle, fs::FileHandle file, const NsoHeader *nso_header, uintptr_t nso_address, size_t nso_size, size_t map_size, bool *out_is_legacy_tls_abi = nullptr) {
             const bool is_zstd = (nso_header->flags & NsoHeader::Flag_UseZbicCompression) != 0;
 
             /* Map and read data from file. */
@@ -710,6 +735,11 @@ namespace ams::ldr {
 
                 /* Apply IPS patches. */
                 LocateAndApplyIpsPatchesToModule(nso_header->module_id, map_address, nso_size);
+
+                /* KEFIR: inspect MOD0+0x34 LNY2 in the decompressed main text, before unmap. */
+                if (out_is_legacy_tls_abi != nullptr) {
+                    *out_is_legacy_tls_abi = DetectLegacyTlsAbiFromMainTextSegment(map_address, nso_header->text_dst_offset, nso_header->text_size);
+                }
             }
 
             /* Set permissions. */
@@ -730,7 +760,7 @@ namespace ams::ldr {
             R_SUCCEED();
         }
 
-        Result LoadAutoLoadModules(const ProcessInfo *process_info, const AutoLoadModuleContext &ctx, const ArgumentStore::Entry *argument) {
+        Result LoadAutoLoadModules(const ProcessInfo *process_info, const AutoLoadModuleContext &ctx, const ArgumentStore::Entry *argument, bool *out_main_is_legacy_tls_abi = nullptr) {
             /* Load each NSO. */
             const uintptr_t total_end = process_info->code_address + process_info->total_size;
 
@@ -744,8 +774,10 @@ namespace ams::ldr {
                 const bool is_zstd    = (ctx.headers[i].flags & NsoHeader::Flag_UseZbicCompression) != 0;
                 const size_t map_size = is_zstd ? (total_end - process_info->nso_address[i]) : process_info->nso_size[i];
 
+                /* KEFIR: capture legacy TLS ABI detection result for the main NSO only. */
+                bool *main_legacy_out = (i == ctx.main_nso_idx) ? out_main_is_legacy_tls_abi : nullptr;
                 R_TRY(LoadAutoLoadModule(process_info->process_handle, file, ctx.headers + i,
-                      process_info->nso_address[i], process_info->nso_size[i], map_size));
+                      process_info->nso_address[i], process_info->nso_size[i], map_size, main_legacy_out));
             }
 
             /* Load arguments, if present. */
@@ -771,10 +803,19 @@ namespace ams::ldr {
             R_SUCCEED();
         }
 
-        Result CreateProcessAndLoadAutoLoadModules(ProcessInfo *out, const Meta *meta, const AutoLoadModuleContext &ctx, const ArgumentStore::Entry *argument, u32 flags, os::NativeHandle resource_limit) {
+        Result CreateProcessAndLoadAutoLoadModules(ProcessInfo *out, const Meta *meta, const AutoLoadModuleContext &ctx, const ArgumentStore::Entry *argument, u32 flags, os::NativeHandle resource_limit, const cfg::OverrideStatus &override_status) {
             /* Get CreateProcessParameter. */
             svc::CreateProcessParameter param;
             R_TRY(GetCreateProcessParameter(std::addressof(param), meta, flags, resource_limit));
+
+            /* KEFIR: HBL override targets (sphaira-hbl, hbloader, hbmenu) host arbitrary old NRO   */
+            /* code at runtime, so mark them legacy up-front regardless of how the hbl binary      */
+            /* itself was built. This guarantees the kernel never writes to TLS+0x108/0x110 for    */
+            /* the hbl process, leaving those slots free for any old-libnx NRO it launches.        */
+            const bool is_hbl = override_status.IsHbl();
+            if (is_hbl) {
+                param.flags |= ams::svc::CreateProcessFlag_LegacyTlsAbi;
+            }
 
             /* Decide on an NSO layout. */
             R_TRY(DecideAddressSpaceLayout(out, std::addressof(param), ctx, argument));
@@ -788,8 +829,22 @@ namespace ams::ldr {
             out->code_address   = param.code_address;
             ON_RESULT_FAILURE { svc::CloseHandle(process_handle); };
 
-            /* Load all auto load modules. */
-            R_RETURN(LoadAutoLoadModules(out, ctx, argument));
+            /* Load all auto load modules, inspecting MOD0+0x34 LNY2 on the main NSO. */
+            bool main_is_legacy_tls_abi = false;
+            R_TRY(LoadAutoLoadModules(out, ctx, argument, std::addressof(main_is_legacy_tls_abi)));
+
+            /* KEFIR: if the main NSO is pre-libnx-4.10.0, retroactively mark the process as       */
+            /* legacy so the kernel skips writes to TLS+0x108 / TLS+0x110 for all of its threads. */
+            /* This catches old forwarder NSPs and any homebrew NSP built with the old USER_TLS    */
+            /* layout. For HBL targets we already set the flag before svcCreateProcess, but call   */
+            /* the SVC idempotently to harden against detection mismatches between code paths.     */
+            if (main_is_legacy_tls_abi || is_hbl) {
+                /* Best-effort: ignore failures here so an older mesosphere without this SVC still  */
+                /* boots; the worst case on a stock kernel is the existing pre-fix behaviour.       */
+                static_cast<void>(svc::SetProcessLegacyTlsAbi(process_handle, true));
+            }
+
+            R_SUCCEED();
         }
 
     }
@@ -836,7 +891,7 @@ namespace ams::ldr {
 
         /* Actually create the process and load NSOs into process memory. */
         ProcessInfo info;
-        R_TRY(CreateProcessAndLoadAutoLoadModules(std::addressof(info), std::addressof(meta), ctx, argument, flags, resource_limit));
+        R_TRY(CreateProcessAndLoadAutoLoadModules(std::addressof(info), std::addressof(meta), ctx, argument, flags, resource_limit, override_status));
 
         /* Register NSOs with the RoManager. */
         {
